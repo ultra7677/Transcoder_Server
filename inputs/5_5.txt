@@ -1,0 +1,139 @@
+Task Begin
+Input="./big.mp4"
+
+Route Begin
+c_v="libx264"
+b_v="1400k"
+s="1280x720"
+c_a="libfaac"
+Output="501.mp4"
+Route End
+
+Route Begin
+c_v="libx264"
+b_v="800k"
+s="640x360"
+c_a="libfaac"
+Output="502.mp4"
+Route End
+
+Route Begin
+c_v="libx264"
+b_v="600k"
+s="640x360"
+c_a="libfaac"
+Output="503.mp4"
+Route End
+Task End
+
+Task Begin
+Input="./big.mp4"
+
+Route Begin
+c_v="libx264"
+b_v="1400k"
+s="1280x720"
+c_a="libfaac"
+Output="501_1.mp4"
+Route End
+
+Route Begin
+c_v="libx264"
+b_v="800k"
+s="640x360"
+c_a="libfaac"
+Output="502_1.mp4"
+Route End
+
+Route Begin
+c_v="libx264"
+b_v="600k"
+s="640x360"
+c_a="libfaac"
+Output="503_1.mp4"
+Route End
+Task End
+
+Task Begin
+Input="./big.mp4"
+
+Route Begin
+c_v="libx264"
+b_v="1400k"
+s="1280x720"
+c_a="libfaac"
+Output="501_2.mp4"
+Route End
+
+Route Begin
+c_v="libx264"
+b_v="800k"
+s="640x360"
+c_a="libfaac"
+Output="502_2.mp4"
+Route End
+
+Route Begin
+c_v="libx264"
+b_v="600k"
+s="640x360"
+c_a="libfaac"
+Output="503_2.mp4"
+Route End
+Task End
+
+Task Begin
+Input="./big.mp4"
+
+Route Begin
+c_v="libx264"
+b_v="1400k"
+s="1280x720"
+c_a="libfaac"
+Output="501_3.mp4"
+Route End
+
+Route Begin
+c_v="libx264"
+b_v="800k"
+s="640x360"
+c_a="libfaac"
+Output="502_3.mp4"
+Route End
+
+Route Begin
+c_v="libx264"
+b_v="600k"
+s="640x360"
+c_a="libfaac"
+Output="503_3.mp4"
+Route End
+Task End
+
+Task Begin
+Input="./big.mp4"
+
+Route Begin
+c_v="libx264"
+b_v="1400k"
+s="1280x720"
+c_a="libfaac"
+Output="501_4.mp4"
+Route End
+
+Route Begin
+c_v="libx264"
+b_v="800k"
+s="640x360"
+c_a="libfaac"
+Output="502_4.mp4"
+Route End
+
+Route Begin
+c_v="libx264"
+b_v="600k"
+s="640x360"
+c_a="libfaac"
+Output="503_4.mp4"
+Route End
+Task End

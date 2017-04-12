@@ -1,0 +1,73 @@
+Task Begin
+Input="./big.mp4"
+
+Route Begin
+c_v="libx264"
+b_v="8000k"
+s="1920x1080"
+c_a="libfaac"
+Output="301.mp4"
+Route End
+
+Route Begin
+c_v="libx264"
+b_v="4000k"
+s="1920x1080"
+c_a="libfaac"
+Output="302.mp4"
+Route End
+
+Route Begin
+c_v="libx264"
+b_v="2300k"
+s="1280x720"
+c_a="libfaac"
+Output="303.mp4"
+Route End
+
+Route Begin
+c_v="libx264"
+b_v="1300k"
+s="1280x720"
+c_a="libfaac"
+Output="304.mp4"
+Route End
+
+Task End
+
+Task Begin
+Input="./big.mp4"
+
+Route Begin
+c_v="libx264"
+b_v="8000k"
+s="1920x1080"
+c_a="libfaac"
+Output="301_1.mp4"
+Route End
+
+Route Begin
+c_v="libx264"
+b_v="4000k"
+s="1920x1080"
+c_a="libfaac"
+Output="302_1.mp4"
+Route End
+
+Route Begin
+c_v="libx264"
+b_v="2300k"
+s="1280x720"
+c_a="libfaac"
+Output="303_1.mp4"
+Route End
+
+Route Begin
+c_v="libx264"
+b_v="1300k"
+s="1280x720"
+c_a="libfaac"
+Output="304_1.mp4"
+Route End
+
+Task End
