@@ -92,13 +92,18 @@ int main( int argc, char **argv)
 
             // Get the command value
             json_object * command = json_object_object_get(jobj,"command");
-            
+
+            // Command is postVideo
+            if (strcmp(json_object_get_string(command),"postVideo") == 0)
+            {
+                cout << json_object_get_string(json_object_object_get(jobj,"command")) << endl;
+            }
             // Command is postVideoTask
      	    if (strcmp(json_object_get_string(command),"postVideoTask") == 0)
-	    {
-		printf("Deal with postVideoTask \n");
-		init_task(jobj);		
-	    }
+	        {
+		        printf("Deal with postVideoTask \n");
+		        init_task(jobj);		
+	        }
            
             // Command is getVideoList
             if (strcmp(json_object_get_string(command),"getVideoList") == 0){
