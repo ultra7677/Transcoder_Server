@@ -1,4 +1,4 @@
-extern "C" {
+extern "C"{
 #include<stdio.h>
 #include<string.h>
 #include<unistd.h>
@@ -21,6 +21,7 @@ void * get_in_addr(struct sockaddr * sa)
 	return &(((struct sockaddr_in6 *)sa)->sin6_addr);
 }
 
+
 int main( int argc, char **argv)  
 {
 // Variables for writing a server.
@@ -30,9 +31,9 @@ int main( int argc, char **argv)
 // Before using hint you have to make sure that the data structure is empty
     memset(& hints, 0, sizeof hints);
 // Set the attribute for hint
-    hints.ai_family = AF_UNSPEC; // We don't care V4 AF_INET or 6 AF_INET6
-    hints.ai_socktype = SOCK_STREAM; // TCP Socket SOCK_DGRAM
-    hints.ai_flags = AI_PASSIVE;
+    hints.ai_family = AF_UNSPEC; // Dont care V4 or V6
+    hints.ai_socktype = SOCK_STREAM; // TCP stream sockets
+    hints.ai_flags = AI_PASSIVE;    // Fill in my IP for me 
 // Fill the res data structure and make sure that the results make sense.
     status = getaddrinfo(NULL, "8888" , &hints, &res);
     if(status != 0)
@@ -78,59 +79,80 @@ int main( int argc, char **argv)
 			fprintf(stderr,"accept: %s\n",gai_strerror(new_conn_fd));
 			continue;
 		}
-
 		inet_ntop(client_addr.ss_family, get_in_addr((struct sockaddr *) &client_addr),s ,sizeof s);
 		printf("I am now connected to %s \n",s);
 
         int received = -1;
-        /* Receive message */
-        if ((received = recv(new_conn_fd, buf, BUFFSIZE, 0)) < 0) {
-            printf("Failed to receive initial bytes from client");
-        }else{
-            printf("Received String from Client : %s\n",buf);
-            json_object * jobj = json_tokener_parse(buf);
+        int total = 0;
+        int i = 0;
+        int first_flag = 0;
+        char *data = (char*)malloc(10000000);
+        char tmp[BUFFSIZE];
 
-            // Get the command value
-            json_object * command = json_object_object_get(jobj,"command");
-
-            // Command is postVideo
-            if (strcmp(json_object_get_string(command),"postVideo") == 0)
-            {
-                cout << json_object_get_string(json_object_object_get(jobj,"command")) << endl;
+        while((received = recv(new_conn_fd, buf, BUFFSIZE, 0)) > 0){
+            if (received == -1)  printf("Failed to receive initial bytes from client");
+            if (received == 0) break;
+            int j = 0;
+            while(j < received){
+                data[i+j] = buf[j];
+                j++;
             }
-            // Command is postVideoTask
-     	    if (strcmp(json_object_get_string(command),"postVideoTask") == 0)
-	        {
-		        printf("Deal with postVideoTask \n");
-		        init_task(jobj);		
-	        }
-           
-            // Command is getVideoList
-            if (strcmp(json_object_get_string(command),"getVideoList") == 0){
-                printf("getVideoList \n");
-		//Creating a json object
-                json_object * jobj = json_object_new_object();
-                //Creating a json array
-                json_object * jarray = json_object_new_array();
-                //Creating videoInfo objects in this array
-                json_object * videoInfoObj1 = json_object_new_object();
-                //Creating a json string in videoInfoObj1
-                json_object * name_str = json_object_new_string("big_v.mp4");
-                json_object_object_add(videoInfoObj1,"videoname",name_str);
-                
-                json_object * id_int = json_object_new_int(0);
-                json_object_object_add(videoInfoObj1,"id",id_int);
-                
-                json_object * taskList_array = json_object_new_array();
-                json_object_object_add(videoInfoObj1,"taskList",taskList_array);
-                
-                json_object_array_add(jarray,videoInfoObj1);
-                json_object_object_add(jobj,"videoList",jarray);
-               
-                status = send(new_conn_fd,json_object_get_string(jobj),strlen(json_object_get_string(jobj)),0);
+            i += received;
+            total += received;            
+           // printf("data : %s\n", data);
+            if (received != 1024 && first_flag == 0){
+                json_object * jobj = json_tokener_parse(data);
+                if (strcmp(json_object_get_string((json_object_object_get(jobj,"command"))),"postVideo") != 0) break;
             }
+            first_flag = 1; 	 
         }
-
+        
+        printf("received and saved total of %zu bytes\n", total );
+       // printf("Received String from Client : %s\n",data);
+        printf("Length of data : %d\n", strlen(data));
+        json_object * jobj = json_tokener_parse(data);
+        // Get the command value
+        json_object * command = json_object_object_get(jobj,"command");
+        printf("command is %s\n",json_object_get_string(command));
+        /* Receive message */
+       
+        // Command is postVideo
+        if (strcmp(json_object_get_string(command),"postVideo") == 0)
+        {
+            cout << json_object_get_string(json_object_object_get(jobj,"command")) << endl;
+        }
+        
+        // Command is postVideoTask
+     	if (strcmp(json_object_get_string(command),"postVideoTask") == 0)
+	{
+            printf("Deal with postVideoTask \n");
+            init_task(jobj);		
+	}
+           
+        // Command is getVideoList
+        if (strcmp(json_object_get_string(command),"getVideoList") == 0){
+            printf("getVideoList \n");
+            //Creating a json object
+            json_object * jobj = json_object_new_object();
+            //Creating a json array
+            json_object * jarray = json_object_new_array();
+            //Creating videoInfo objects in this array
+            json_object * videoInfoObj1 = json_object_new_object();
+            //Creating a json string in videoInfoObj1
+            json_object * name_str = json_object_new_string("big_v.mp4");
+            json_object_object_add(videoInfoObj1,"videoname",name_str);
+                
+            json_object * id_int = json_object_new_int(0);
+            json_object_object_add(videoInfoObj1,"id",id_int);
+                
+            json_object * taskList_array = json_object_new_array();
+            json_object_object_add(videoInfoObj1,"taskList",taskList_array);
+                
+            json_object_array_add(jarray,videoInfoObj1);
+            json_object_object_add(jobj,"videoList",jarray);
+               
+            status = send(new_conn_fd,json_object_get_string(jobj),strlen(json_object_get_string(jobj)),0);
+         }   
 	//status = send(new_conn_fd,"Welcome", 7,0);
 	if(status == -1)
 	{
@@ -143,3 +165,4 @@ int main( int argc, char **argv)
 	close(new_conn_fd);
 	return 0;
 }
+
