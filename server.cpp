@@ -1,4 +1,5 @@
 extern "C"{
+#include<dirent.h>
 #include<stdio.h>
 #include<string.h>
 #include<unistd.h>
@@ -120,7 +121,7 @@ void init_tcp_server()
         }
         
         //printf("received and saved total of %zu bytes\n", total );
-        //printf("Received String from Client : %s\n",data);
+        printf("Received String from Client : %s\n",data);
         //printf("Length of data : %d\n", strlen(data));
 
         // Parse json string format data received from client end
@@ -128,13 +129,39 @@ void init_tcp_server()
         json_object * jobj = json_tokener_parse(data);
         json_object * command = json_object_object_get(jobj,"command");
         printf("command is %s\n",json_object_get_string(command));
-   
+       
         // Command is postVideo
         if (strcmp(json_object_get_string(command),"postVideo") == 0)
         {
             cout << json_object_get_string(json_object_object_get(jobj,"command")) << endl;
-        }
-        
+            
+            json_object * videoname = json_object_object_get(jobj,"videoname");
+            json_object * buf = json_object_object_get(jobj,"buf");
+	    json_object * data_array = json_object_object_get(buf,"data");
+            json_object * jvalue;
+            int value;
+            int array_length = json_object_array_length(data_array);
+	    char buffer;
+            FILE *write_ptr;
+            const char* targetname = json_object_get_string(videoname);
+	    char path [100];
+	    strcpy(path,"./videos/");
+            strcat(path,targetname);
+            printf("target name is %s\n",path);
+            write_ptr = fopen(path,"wb");
+           // write_ptr = fopen(json_object_get_string(videoname),"wb");
+           // printf("data is %s\n",json_object_get_string(data_array));
+            printf("length is %d\n",array_length);
+            for (int i = 0; i< array_length; i++)
+            {
+                jvalue = json_object_array_get_idx(data_array,i);
+                value = json_object_get_int(jvalue);
+                buffer = value;
+                fputc(buffer,write_ptr);
+		printf("%c",buffer); 
+            } 
+            fclose(write_ptr); 
+	}
         // Command is postVideoTask
         if (strcmp(json_object_get_string(command),"postVideoTask") == 0)
         {
@@ -145,25 +172,37 @@ void init_tcp_server()
         // Command is getVideoList
         if (strcmp(json_object_get_string(command),"getVideoList") == 0){
             printf("getVideoList \n");
+
+	    DIR *d;
+            struct dirent *dir;
+            d = opendir("./videos");
+            
             //Creating a json object
             json_object * jobj = json_object_new_object();
-            //Creating a json array
+	    //Creating a json array
             json_object * jarray = json_object_new_array();
-            //Creating videoInfo objects in this array
-            json_object * videoInfoObj1 = json_object_new_object();
-            //Creating a json string in videoInfoObj1
-            json_object * name_str = json_object_new_string("big_v.mp4");
-            json_object_object_add(videoInfoObj1,"videoname",name_str);
-                
-            json_object * id_int = json_object_new_int(0);
-            json_object_object_add(videoInfoObj1,"id",id_int);
-                
-            json_object * taskList_array = json_object_new_array();
-            json_object_object_add(videoInfoObj1,"taskList",taskList_array);
-                
-            json_object_array_add(jarray,videoInfoObj1);
+            int idx = 0;	
+            while((dir = readdir(d)) != NULL)
+            {
+                char* videoname = dir->d_name;
+		if (strlen(videoname) > 2)
+                {
+                    printf("%s\n", videoname);
+                    //Creating videoInfo objects in this array
+           	    json_object * videoInfoObj1 = json_object_new_object();
+                    //Creating a json string in videoInfoObj1
+                    json_object * name_str = json_object_new_string(videoname);
+                    json_object_object_add(videoInfoObj1,"videoname",name_str);
+                    json_object * id_int = json_object_new_int(idx);
+                    json_object_object_add(videoInfoObj1,"id",id_int);
+                    json_object * taskList_array = json_object_new_array();
+                    json_object_object_add(videoInfoObj1,"taskList",taskList_array);
+                    json_object_array_add(jarray,videoInfoObj1);
+                    idx++;
+                }
+            }
             json_object_object_add(jobj,"videoList",jarray);
-               
+            closedir(d);
             status = send(new_conn_fd,json_object_get_string(jobj),strlen(json_object_get_string(jobj)),0);
          }   
         
@@ -179,10 +218,33 @@ void init_tcp_server()
     close(new_conn_fd);
 }
 
+/*x264 library lock*/
+pthread_mutex_t x264_t_lock = PTHREAD_MUTEX_INITIALIZER;
+vector<trans_ctx_t *> t_ctxs;
+extern core_t cores;
+thread_pool_t thr_pool;
 
 int main( int argc, char **argv)  
 {
+    struct timeval start, end;
+    gettimeofday(&start, NULL);
+    init();
+
+    // init thread pool
+    pthread_mutex_init(&thr_pool.threads_map_mutex, NULL);
+    pthread_barrier_init(&thr_pool.pool_barrier, NULL, cores.core_cnt + 1);
+    pthread_t *threads = (pthread_t *)malloc(sizeof(pthread_t) * cores.core_cnt);
+
+    for (int j = 0; j < cores.core_cnt; j++)
+        pthread_create(&threads[j], NULL, (void * (*)(void *))launch_thread, NULL);
+
+    pthread_barrier_wait(&thr_pool.pool_barrier);
+
     init_tcp_server();
+
+    for (int j = 0; j < cores.core_cnt; j++)
+        pthread_join(threads[j], NULL);
+    
     return 0;
 }
 
