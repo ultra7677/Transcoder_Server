@@ -21,6 +21,8 @@ void set_injected_version(int v)
 int open_encode_t(trans_ctx_t *tctx, encode_t *c, output_t *opt, Gop *g)
 {
     pthread_t tid = pthread_self();
+
+    c->opt = opt;
     /*x264 library*/
     if (tctx->inject)
     {
@@ -289,6 +291,7 @@ int flush_multi_encoder (trans_ctx_t *tctx, vector<encode_t *> multi_enc_t)
             }
 
             ret = av_write_frame(enc_t->fmt_ctx, &enc_t->pkt);
+            atomic(&enc_t->opt->enc_frame_cnt_mutex, enc_t->opt->enc_frame_cnt += 1);
 
             if (ret < 0)
             {
@@ -319,7 +322,7 @@ int multi_scale_encode_gop(trans_ctx_t *tctx, Gop *g, vector<output_t *>& opts)
 
     cout << "go to encode" << endl;
 
-    vector<encode_t *>  multi_enc_t;
+    vector<encode_t *> multi_enc_t;
     for (int i = 0; i < size; i++)
     {
         encode_t *enc_t = (encode_t *)malloc(sizeof(encode_t));
@@ -380,6 +383,8 @@ int multi_scale_encode_gop(trans_ctx_t *tctx, Gop *g, vector<output_t *>& opts)
 		    	enc_t->pkt.stream_index = enc_t->video_st->index;
                 av_packet_rescale_ts(&enc_t->pkt, enc_t->ctx->time_base, enc_t->video_st->time_base);
                 av_write_frame(enc_t->fmt_ctx, &enc_t->pkt);
+
+                atomic(&opt->enc_frame_cnt_mutex, opt->enc_frame_cnt += 1);
 		    }
         }
     }

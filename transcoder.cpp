@@ -1,5 +1,7 @@
 #include "transcoder_core.h"
 
+extern unordered_map<int, trans_ctx_t *>  id_tctx_map;
+
 int init_task(json_object *jobj)
 {
     printf("init task____\n");
@@ -9,10 +11,12 @@ int init_task(json_object *jobj)
     string ipt_name;
     int task_num;
     int opt_num;
+    int trans_id;
    
     trans_ctx_t *tctx = new trans_ctx_t;
     tctx->ipt.filename ="./videos/" + (string)json_object_get_string(json_object_object_get(jobj,"videoname"));
     opt_num = json_object_get_int(json_object_object_get(jobj,"num"));
+    trans_id = json_object_get_int(json_object_object_get(jobj,"id"));
         
     json_object *jvalue;
     json_object *jarray = json_object_object_get(jobj,"targetList");
@@ -47,7 +51,9 @@ int init_task(json_object *jobj)
 
     vector<pthread_t> tmp;
     init_trans_ctx(tctx, 40);
+    id_tctx_map[trans_id] = tctx;
     add_tctx(tctx, tmp);
+
     /*t_ctxs.push_back(tctx);*/
     /*clip_video(tctx);*/
     /*alarm(1);*/

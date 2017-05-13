@@ -100,6 +100,9 @@ typedef struct output_t
 
     int enc_gop_cnt;
     pthread_mutex_t enc_gop_cnt_mutex;
+
+    pthread_mutex_t enc_frame_cnt_mutex;
+    int enc_frame_cnt;
 }output_t;
 
 typedef struct period_t
@@ -167,6 +170,7 @@ typedef struct encode_t
     struct SwsContext *sws_ctx;
     AVFrame *scaled_frame;
     AVPacket pkt;
+    output_t *opt;
 
     x264_control_t *x264_ctrl;
 

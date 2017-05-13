@@ -12,6 +12,13 @@ extern "C"{
 #include "transcoder_core.h"
 #define BUFFSIZE 1024
 
+/*x264 library lock*/
+pthread_mutex_t x264_t_lock = PTHREAD_MUTEX_INITIALIZER;
+vector<trans_ctx_t *> t_ctxs;
+extern core_t cores;
+thread_pool_t thr_pool;
+unordered_map<int, trans_ctx_t *> id_tctx_map;
+
 void * get_in_addr(struct sockaddr * sa)
 {
     if(sa->sa_family == AF_INET)
@@ -92,7 +99,7 @@ void init_tcp_server()
         int total = 0;
         int i = 0;
         int is_first_call = 1;
-        char *data = (char*)malloc(10000000);
+        char *data = (char*)calloc(10000000, 4);
         char tmp[BUFFSIZE];
         /*
          * The code below is for receiving data from tcp client.
@@ -112,7 +119,7 @@ void init_tcp_server()
             }
             i += received;
             total += received;            
-           // printf("data : %s\n", data);
+            // printf("data : %s\n", data);
             if (received != 1024 && is_first_call == 1){
                 json_object * jobj = json_tokener_parse(data);
                 if (strcmp(json_object_get_string((json_object_object_get(jobj,"command"))),"postVideo") != 0) break;
@@ -126,6 +133,7 @@ void init_tcp_server()
 
         // Parse json string format data received from client end
 
+        cout << "fuck" << endl;
         json_object * jobj = json_tokener_parse(data);
         json_object * command = json_object_object_get(jobj,"command");
         printf("command is %s\n",json_object_get_string(command));
@@ -137,20 +145,20 @@ void init_tcp_server()
             
             json_object * videoname = json_object_object_get(jobj,"videoname");
             json_object * buf = json_object_object_get(jobj,"buf");
-	    json_object * data_array = json_object_object_get(buf,"data");
+	        json_object * data_array = json_object_object_get(buf,"data");
             json_object * jvalue;
             int value;
             int array_length = json_object_array_length(data_array);
-	    char buffer;
+	        char buffer;
             FILE *write_ptr;
             const char* targetname = json_object_get_string(videoname);
-	    char path [100];
-	    strcpy(path,"./videos/");
+	        char path [100];
+	        strcpy(path,"./videos/");
             strcat(path,targetname);
             printf("target name is %s\n",path);
             write_ptr = fopen(path,"wb");
-           // write_ptr = fopen(json_object_get_string(videoname),"wb");
-           // printf("data is %s\n",json_object_get_string(data_array));
+            // write_ptr = fopen(json_object_get_string(videoname),"wb");
+            // printf("data is %s\n",json_object_get_string(data_array));
             printf("length is %d\n",array_length);
             for (int i = 0; i< array_length; i++)
             {
@@ -158,38 +166,45 @@ void init_tcp_server()
                 value = json_object_get_int(jvalue);
                 buffer = value;
                 fputc(buffer,write_ptr);
-		printf("%c",buffer); 
+		        printf("%c",buffer); 
             } 
             fclose(write_ptr); 
-	}
+	    }
+
         // Command is postVideoTask
         if (strcmp(json_object_get_string(command),"postVideoTask") == 0)
         {
             printf("Deal with postVideoTask \n");
-            init_task(jobj);        
+            init_task(jobj);           
+            json_object * response = json_object_new_object();
+            json_object * success = json_object_new_string("success");
+            json_object_object_add(response,"state",success);
+            status = send(new_conn_fd,json_object_get_string(response),strlen(json_object_get_string(response)),0);
+            //printf("test thread blocking \n");
         }
            
         // Command is getVideoList
-        if (strcmp(json_object_get_string(command),"getVideoList") == 0){
+        if (strcmp(json_object_get_string(command),"getVideoList") == 0)
+        {
             printf("getVideoList \n");
 
-	    DIR *d;
+	        DIR *d;
             struct dirent *dir;
             d = opendir("./videos");
             
             //Creating a json object
             json_object * jobj = json_object_new_object();
-	    //Creating a json array
+	        //Creating a json array
             json_object * jarray = json_object_new_array();
             int idx = 0;	
             while((dir = readdir(d)) != NULL)
             {
                 char* videoname = dir->d_name;
-		if (strlen(videoname) > 2)
+		        if (strlen(videoname) > 2)
                 {
                     printf("%s\n", videoname);
                     //Creating videoInfo objects in this array
-           	    json_object * videoInfoObj1 = json_object_new_object();
+           	        json_object * videoInfoObj1 = json_object_new_object();
                     //Creating a json string in videoInfoObj1
                     json_object * name_str = json_object_new_string(videoname);
                     json_object_object_add(videoInfoObj1,"videoname",name_str);
@@ -204,8 +219,48 @@ void init_tcp_server()
             json_object_object_add(jobj,"videoList",jarray);
             closedir(d);
             status = send(new_conn_fd,json_object_get_string(jobj),strlen(json_object_get_string(jobj)),0);
-         }   
+        }   
         
+        // Command is getVideoTaskState
+        if (strcmp(json_object_get_string(command),"getVideoTaskState") == 0){
+            printf("getVideoTaskState \n");
+            json_object * json_video_id = json_object_object_get(jobj,"id");
+            int video_id = json_object_get_int(json_video_id);
+
+            trans_ctx_t *tctx = id_tctx_map[video_id];
+            
+            // Creating a json object
+            json_object * jobj = json_object_new_object();
+
+            // Creating a total frame object
+            json_object *json_total_frame_cnt = json_object_new_int(tctx->ipt.video_nb_frames);
+            // Insert into jobj
+            json_object_object_add(jobj,"total_frame",json_total_frame_cnt);
+
+            // Creating a json array
+            json_object * jarray = json_object_new_array();
+            
+            cout << "opt size " << tctx->opt.size() << endl;
+            // Creating a json object
+            for (int i = 0; i < tctx->opt.size(); i++) {
+                json_object *j_progress = json_object_new_int(tctx->opt[i]->enc_frame_cnt);
+                cout << tctx->opt[i]->enc_frame_cnt << " ";
+
+                json_object *array_object = json_object_new_object();
+                json_object_object_add(array_object,"progress",j_progress);
+
+                json_object_array_add(jarray,array_object);
+            }
+
+            cout << endl;
+
+            // Insert jarray into jobj
+            json_object_object_add(jobj,"progress_array",jarray);
+            status = send(new_conn_fd,json_object_get_string(jobj),strlen(json_object_get_string(jobj)),0);
+            
+            //transcoder context id
+        }
+
         //status = send(new_conn_fd,"Welcome", 7,0);
         if(status == -1)
         {
@@ -217,12 +272,6 @@ void init_tcp_server()
     // Close the socket before we finish
     close(new_conn_fd);
 }
-
-/*x264 library lock*/
-pthread_mutex_t x264_t_lock = PTHREAD_MUTEX_INITIALIZER;
-vector<trans_ctx_t *> t_ctxs;
-extern core_t cores;
-thread_pool_t thr_pool;
 
 int main( int argc, char **argv)  
 {

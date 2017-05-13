@@ -267,6 +267,9 @@ void init_trans_ctx(trans_ctx_t *tctx, int t_num)
     {
         pthread_mutex_init(&tctx->opt[i]->enc_gop_cnt_mutex, NULL);
         tctx->opt[i]->enc_gop_cnt = 0;
+
+        pthread_mutex_init(&tctx->opt[i]->enc_frame_cnt_mutex, NULL);
+        tctx->opt[i]->enc_frame_cnt = 0;
     }
 
     pthread_mutex_init(&tctx->gop_cnt_mutex, NULL);
