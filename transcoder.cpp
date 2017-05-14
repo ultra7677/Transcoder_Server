@@ -1,6 +1,9 @@
 #include "transcoder_core.h"
 
 extern unordered_map<int, trans_ctx_t *>  id_tctx_map;
+unordered_map<trans_ctx_t *, list<pthread_t> > tctx_thrs_map;
+extern core_t cores;
+extern thread_pool_t thr_pool;
 
 int init_task(json_object *jobj)
 {
@@ -49,9 +52,52 @@ int init_task(json_object *jobj)
     cout << "filename " << tctx->ipt.filename << endl; 
     cout << "map size " << tctx->reso_opts_map.size() << endl;
 
-    vector<pthread_t> tmp;
     init_trans_ctx(tctx, 40);
     id_tctx_map[trans_id] = tctx;
+    vector<pthread_t> tmp;
+
+    // thread scheduling
+    if (tctx_thrs_map.size() == 0)
+    {
+        list<pthread_t> thr_list;
+        for (auto iter = thr_pool.threads_map.begin(); iter != thr_pool.threads_map.end(); iter++)
+        {
+            thr_list.push_back(iter->first);
+            tmp.push_back(iter->first);
+        }
+
+        tctx_thrs_map[tctx] = thr_list;  
+    } else {
+
+        int alive_tctx_cnt = tctx_thrs_map.size(); 
+
+        int avg_thr_cnt = cores.core_cnt/(alive_tctx_cnt + 1);
+        int left_thr_cnt = cores.core_cnt - avg_thr_cnt * alive_tctx_cnt;
+
+        cout << "left_thr_cnt" << left_thr_cnt << endl;
+
+        int i = 0;
+        list<pthread_t> new_thr_list;
+        while (i < left_thr_cnt)
+        {
+            for (auto iter = tctx_thrs_map.begin(); iter != tctx_thrs_map.end(); iter++)
+            {
+                list<pthread_t> &thr_list = iter->second;
+                pthread_t tid = thr_list.front();
+                tmp.push_back(tid);
+                new_thr_list.push_back(tid);
+                thr_list.pop_front();
+
+                thr_pool.threads_map[tid]->schedule = true;
+
+                if (++i == left_thr_cnt)
+                    break;
+            }
+        }
+
+        tctx_thrs_map[tctx] = new_thr_list;
+    }
+
     add_tctx(tctx, tmp);
 
     /*t_ctxs.push_back(tctx);*/

@@ -18,6 +18,7 @@ vector<trans_ctx_t *> t_ctxs;
 extern core_t cores;
 thread_pool_t thr_pool;
 unordered_map<int, trans_ctx_t *> id_tctx_map;
+extern unordered_map<trans_ctx_t *, list<pthread_t> > tctx_thrs_map;
 
 void * get_in_addr(struct sockaddr * sa)
 {
@@ -224,11 +225,12 @@ void init_tcp_server()
         // Command is getVideoTaskState
         if (strcmp(json_object_get_string(command),"getVideoTaskState") == 0){
             printf("getVideoTaskState \n");
-            json_object * json_video_id = json_object_object_get(jobj,"id");
+            json_object * json_video_id = json_object_object_get(jobj,"videoId");
             int video_id = json_object_get_int(json_video_id);
 
             trans_ctx_t *tctx = id_tctx_map[video_id];
             
+            cout << "video id" << video_id << "trans " << tctx << endl;
             // Creating a json object
             json_object * jobj = json_object_new_object();
 
@@ -237,10 +239,10 @@ void init_tcp_server()
             // Insert into jobj
             json_object_object_add(jobj,"total_frame",json_total_frame_cnt);
 
+            // PROGRESS
             // Creating a json array
             json_object * jarray = json_object_new_array();
             
-            cout << "opt size " << tctx->opt.size() << endl;
             // Creating a json object
             for (int i = 0; i < tctx->opt.size(); i++) {
                 json_object *j_progress = json_object_new_int(tctx->opt[i]->enc_frame_cnt);
@@ -256,11 +258,34 @@ void init_tcp_server()
 
             // Insert jarray into jobj
             json_object_object_add(jobj,"progress_array",jarray);
-            status = send(new_conn_fd,json_object_get_string(jobj),strlen(json_object_get_string(jobj)),0);
             
-            //transcoder context id
+            cout << "insert progress" << endl;
+            // CORE MAPPING
+            // Creating a json array
+            json_object * jarray1 = json_object_new_array();
+            
+            // Creating a json object
+            list<pthread_t> &thr_list = tctx_thrs_map[tctx];
+            for (auto iter = thr_list.begin(); iter != thr_list.end(); iter++)
+            {
+                json_object *j_core = json_object_new_int(*iter);
+                
+                json_object *array_object = json_object_new_object();
+                json_object_object_add(array_object,"core",j_core);
+
+                json_object_array_add(jarray1,array_object);
+            } 
+
+            // Insert jarray into jobj
+            json_object_object_add(jobj,"core_array",jarray1);
+
+            status = send(new_conn_fd,json_object_get_string(jobj),strlen(json_object_get_string(jobj)),0);
         }
 
+
+        // Command is getCoreState
+        if (strcmp(json_object_get_string(command),"getCoreState") == 0){
+        } 
         //status = send(new_conn_fd,"Welcome", 7,0);
         if(status == -1)
         {

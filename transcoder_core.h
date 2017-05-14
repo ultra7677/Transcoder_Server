@@ -284,6 +284,7 @@ typedef struct core_t
 typedef struct thread_inst_t
 {
    queue<trans_ctx_t *> tctx_queue;
+   bool schedule;
    sem_t tctx_sem;
 } thread_inst_t;
 

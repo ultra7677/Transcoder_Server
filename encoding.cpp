@@ -4,6 +4,9 @@
 
 using namespace std;
 
+extern unordered_map<trans_ctx_t *, list<pthread_t> > tctx_thrs_map;
+extern thread_pool_t thr_pool;
+
 void free_ctrl(x264_control_t *x_ctrl)
 {
     return;
@@ -471,6 +474,21 @@ int multi_scale_encode(void *arg)
             tctx->opt[i]->enc_gop_cnt = 0;
             //output_video(tctx, tctx->opt[i]);
             pthread_mutex_unlock(&tctx->opt[i]->enc_gop_cnt_mutex);
+
+            tctx_thrs_map.erase(tctx);
+        }
+
+        /*can be schedule out*/
+        thread_inst_t *thr = thr_pool.threads_map[pthread_self()];
+        if (thr->schedule)
+        {
+            cout << "schedule" << endl;
+            sem_wait(&thr->tctx_sem);
+            tctx = thr->tctx_queue.front();
+            thr->tctx_queue.pop();
+            thr->schedule = false;
+
+            launch_transcoding(tctx);
         }
 
         /*cout << endl;*/

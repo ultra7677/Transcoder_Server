@@ -94,6 +94,7 @@ transcoding:
 
     trans_ctx_t *tctx = thr->tctx_queue.front();
     thr->tctx_queue.pop();
+    thr->schedule = false;
 
     launch_transcoding(tctx);
     goto transcoding;
@@ -101,19 +102,19 @@ transcoding:
 
 void add_tctx(trans_ctx_t *tctx, vector<pthread_t>& thr_vec)
 {
-//    for (int i = 0; i < thr_vec.size(); i++)
-//    {
-//        thread_inst_t *thr = thr_pool.threads_map[thr_vec[i]];
-//        thr->tctx_queue.push(tctx);
-//        sem_post(&thr->tctx_sem);
-//    }
-    for(auto iter = thr_pool.threads_map.begin();
-            iter != thr_pool.threads_map.end(); iter++)
+    for (int i = 0; i < thr_vec.size(); i++)
     {
-        thread_inst_t *thr = thr_pool.threads_map[iter->first];
+        thread_inst_t *thr = thr_pool.threads_map[thr_vec[i]];
         thr->tctx_queue.push(tctx);
         sem_post(&thr->tctx_sem);
     }
+//    for(auto iter = thr_pool.threads_map.begin();
+//            iter != thr_pool.threads_map.end(); iter++)
+//    {
+//        thread_inst_t *thr = thr_pool.threads_map[iter->first];
+//        thr->tctx_queue.push(tctx);
+//        sem_post(&thr->tctx_sem);
+//    }
 }
 
 period_t *get_period(trans_ctx_t *tctx)
@@ -294,8 +295,27 @@ void decode_period(trans_ctx_t *tctx)
             pthread_cond_signal(&tctx->periods_avail);
             
             /*can be schedule out*/
+            thread_inst_t *thr = thr_pool.threads_map[pthread_self()];
+            if (thr->schedule)
+            {
+                cout << "schedule" << endl;
+                sem_wait(&thr->tctx_sem);
+                tctx = thr->tctx_queue.front();
+                thr->tctx_queue.pop();
+                thr->schedule = false;
+            }
+
             multi_scale_encode(tctx);
             /*can be schedule out*/
+            thr = thr_pool.threads_map[pthread_self()];
+            if (thr->schedule)
+            {
+                cout << "schedule" << endl;
+                sem_wait(&thr->tctx_sem);
+                tctx = thr->tctx_queue.front();
+                thr->tctx_queue.pop();
+                thr->schedule = false;
+            }
 
             continue;
         }
@@ -383,6 +403,17 @@ void decode_period(trans_ctx_t *tctx)
             cout << "dec finished " << tctx->gbt.full_gop_buf.size() << endl;
         }
         /*can be schedule out*/
+        thread_inst_t *thr = thr_pool.threads_map[pthread_self()];
+        if (thr->schedule)
+        {
+            cout << "schedule" << endl;
+            sem_wait(&thr->tctx_sem);
+            tctx = thr->tctx_queue.front();
+            thr->tctx_queue.pop();
+            thr->schedule = false;
+
+            launch_transcoding(tctx);
+        }
     }
 
     /* help encoder thread do encoding task */
